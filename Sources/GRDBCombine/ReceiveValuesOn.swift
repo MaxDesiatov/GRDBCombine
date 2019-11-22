@@ -1,4 +1,4 @@
-import Combine
+import OpenCombine
 import Foundation
 
 /// A publisher that delivers values to its downstream subscriber on a

@@ -1,4 +1,4 @@
-import Combine
+import OpenCombine
 
 extension Publisher where Failure == Never {
     // TODO: remove when Combine supports ships with this operator.

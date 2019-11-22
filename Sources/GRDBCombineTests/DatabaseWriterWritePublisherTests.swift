@@ -1,5 +1,5 @@
 import GRDB
-import Combine
+import OpenCombine
 import GRDBCombine
 import XCTest
 

@@ -4,26 +4,27 @@
 import PackageDescription
 
 let package = Package(
-    name: "GRDBCombine",
+    name: "GRDBOpenCombine",
     platforms: [
-        .iOS("13.0"),
-        .macOS("10.15"),
-        .tvOS("13.0"),
-        .watchOS("6.0"),
+        .iOS("10.0"),
+        .macOS("10.10"),
+        .tvOS("9.0"),
+        .watchOS("2.0"),
     ],
     products: [
         .library(name: "GRDBCombine", targets: ["GRDBCombine"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/groue/GRDB.swift.git", .upToNextMajor(from: "4.1.0"))
+        .package(url: "https://github.com/groue/GRDB.swift.git", .upToNextMajor(from: "4.1.0")),
+        .package(url: "https://github.com/broadwaylamb/OpenCombine.git", .upToNextMajor(from: "0.5.0"))
     ],
     targets: [
         .target(
             name: "GRDBCombine",
-            dependencies: ["GRDB"]),
+            dependencies: ["GRDB", "OpenCombine", "OpenCombineDispatch"]),
         .testTarget(
             name: "GRDBCombineTests",
-            dependencies: ["GRDBCombine", "GRDB"])
+            dependencies: ["GRDBCombine", "GRDB", "OpenCombine"])
     ],
     swiftLanguageVersions: [.v5]
 )

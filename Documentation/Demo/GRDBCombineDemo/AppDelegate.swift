@@ -1,5 +1,5 @@
 import UIKit
-import Combine
+import OpenCombine
 import GRDB
 
 @UIApplicationMain

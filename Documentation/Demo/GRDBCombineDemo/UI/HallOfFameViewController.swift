@@ -1,4 +1,4 @@
-import Combine
+import OpenCombine
 import UIKit
 
 class HallOfFameViewController: UITableViewController {
