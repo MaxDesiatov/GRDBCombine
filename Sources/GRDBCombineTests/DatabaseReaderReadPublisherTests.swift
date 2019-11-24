@@ -1,5 +1,6 @@
 import GRDB
 import GRDBCombine
+import OpenCombineDispatch
 import XCTest
 
 private struct Player: Codable, FetchableRecord, PersistableRecord {
@@ -130,7 +131,7 @@ class DatabaseReaderReadPublisherTests : XCTestCase {
             let queue = DispatchQueue(label: "test")
             let expectation = self.expectation(description: "")
             let testCancellable = reader
-                .readPublisher(receiveOn: queue, value: { db in
+                .readPublisher(receiveOn: queue.ocombine, value: { db in
                     try Player.fetchCount(db)
                 })
                 .sink(

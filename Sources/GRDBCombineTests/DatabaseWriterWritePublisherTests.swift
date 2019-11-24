@@ -1,5 +1,6 @@
 import GRDB
 import OpenCombine
+import OpenCombineDispatch
 import GRDBCombine
 import XCTest
 
@@ -163,7 +164,7 @@ class DatabaseWriterWritePublisherTests : XCTestCase {
             let queue = DispatchQueue(label: "test")
             let expectation = self.expectation(description: "")
             let testCancellable = writer
-                .writePublisher(receiveOn: queue, updates: { db in
+                .writePublisher(receiveOn: queue.ocombine, updates: { db in
                     try Player(id: 1, name: "Arthur", score: 1000).insert(db)
                 })
                 .sink(

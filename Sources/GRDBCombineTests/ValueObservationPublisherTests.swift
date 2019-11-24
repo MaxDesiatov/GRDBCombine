@@ -19,226 +19,226 @@ private struct Player: Codable, FetchableRecord, PersistableRecord {
 
 class ValueObservationPublisherTests : XCTestCase {
     
-    func testChangesNotifications() throws {
-        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
-            try writer.write(Player.createTable)
-            return writer
-        }
-        
-        func test(writer: DatabaseWriter) throws {
-            let expectation = self.expectation(description: "")
-            let testSubject = PassthroughSubject<Int, Error>()
-            let testCancellable = testSubject
-                .collect(3)
-                .sink(
-                    receiveCompletion: { completion in
-                        assertNoFailure(completion)
-                },
-                    receiveValue: { value in
-                        XCTAssertEqual(value, [0, 1, 3])
-                        expectation.fulfill()
-                })
-            
-            let observationCancellable = Player
-                .observationForCount()
-                .publisher(in: writer as DatabaseReader)
-                .subscribe(testSubject)
-            
-            try writer.writeWithoutTransaction { db in
-                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
-                
-                try db.inTransaction {
-                    try Player(id: 2, name: "Barbara", score: 750).insert(db)
-                    try Player(id: 3, name: "Craig", score: 500).insert(db)
-                    return .commit
-                }
-            }
-            
-            waitForExpectations(timeout: 1, handler: nil)
-            testCancellable.cancel()
-            observationCancellable.cancel()
-        }
-        
-        try Test(test)
-            .run { try setUp(DatabaseQueue()) }
-            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
-            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
-    }
-    
-    func testDefaultScheduler() throws {
-        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
-            try writer.write(Player.createTable)
-            return writer
-        }
-        
-        func test(writer: DatabaseWriter) throws {
-            let expectation = self.expectation(description: "")
-            let testSubject = PassthroughSubject<Int, Error>()
-            let testCancellable = testSubject
-                .handleEvents(receiveOutput: { _ in
-                    dispatchPrecondition(condition: .onQueue(.main))
-                })
-                .collect(2)
-                .sink(
-                    receiveCompletion: { completion in
-                        assertNoFailure(completion)
-                        dispatchPrecondition(condition: .onQueue(.main))
-                },
-                    receiveValue: { value in
-                        // 2 = test for initial value + changed value
-                        XCTAssertEqual(value.count, 2)
-                        expectation.fulfill()
-                })
-            
-            let observationCancellable = Player
-                .observationForCount()
-                .publisher(in: writer as DatabaseReader)
-                .subscribe(testSubject)
-            
-            try writer.writeWithoutTransaction { db in
-                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
-            }
-            
-            waitForExpectations(timeout: 1, handler: nil)
-            testCancellable.cancel()
-            observationCancellable.cancel()
-        }
-        
-        try Test(test)
-            .run { try setUp(DatabaseQueue()) }
-            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
-            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
-    }
-    
-    func testFirstValueIsEmittedAsynchronously() throws {
-        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
-            try writer.write(Player.createTable)
-            return writer
-        }
-        
-        func test(writer: DatabaseWriter) throws {
-            let expectation = self.expectation(description: "")
-            let semaphore = DispatchSemaphore(value: 0)
-            let testSubject = PassthroughSubject<Int, Error>()
-            let testCancellable = testSubject
-                .sink(
-                    receiveCompletion: { _ in },
-                    receiveValue: { _ in
-                        semaphore.wait()
-                        expectation.fulfill()
-                })
-            
-            let observationCancellable = Player
-                .observationForCount()
-                .publisher(in: writer as DatabaseReader)
-                .subscribe(testSubject)
-            
-            semaphore.signal()
-            waitForExpectations(timeout: 1, handler: nil)
-            testCancellable.cancel()
-            observationCancellable.cancel()
-        }
-        
-        try Test(test)
-            .run { try setUp(DatabaseQueue()) }
-            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
-            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
-    }
-    
-    // MARK: - FetchOnSubscription
-    
-    func testFetchOnSubscriptionChangesNotifications() throws {
-        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
-            try writer.write(Player.createTable)
-            return writer
-        }
-        
-        func test(writer: DatabaseWriter) throws {
-            let expectation = self.expectation(description: "")
-            let testSubject = PassthroughSubject<Int, Error>()
-            let testCancellable = testSubject
-                .collect(3)
-                .sink(
-                    receiveCompletion: { completion in
-                        assertNoFailure(completion)
-                },
-                    receiveValue: { value in
-                        XCTAssertEqual(value, [0, 1, 3])
-                        expectation.fulfill()
-                })
-            
-            let observationCancellable = Player
-                .observationForCount()
-                .publisher(in: writer as DatabaseReader)
-                .fetchOnSubscription()
-                .subscribe(testSubject)
-            
-            try writer.writeWithoutTransaction { db in
-                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
-                
-                try db.inTransaction {
-                    try Player(id: 2, name: "Barbara", score: 750).insert(db)
-                    try Player(id: 3, name: "Craig", score: 500).insert(db)
-                    return .commit
-                }
-            }
-            
-            waitForExpectations(timeout: 1, handler: nil)
-            testCancellable.cancel()
-            observationCancellable.cancel()
-        }
-        
-        try Test(test)
-            .run { try setUp(DatabaseQueue()) }
-            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
-            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
-    }
-    
-    func testFetchOnSubscriptionDefaultScheduler() throws {
-        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
-            try writer.write(Player.createTable)
-            return writer
-        }
-        
-        func test(writer: DatabaseWriter) throws {
-            let expectation = self.expectation(description: "")
-            let testSubject = PassthroughSubject<Int, Error>()
-            let testCancellable = testSubject
-                .handleEvents(receiveOutput: { _ in
-                    dispatchPrecondition(condition: .onQueue(.main))
-                })
-                .collect(2)
-                .sink(
-                    receiveCompletion: { completion in
-                        assertNoFailure(completion)
-                        dispatchPrecondition(condition: .onQueue(.main))
-                },
-                    receiveValue: { value in
-                        // 2 = test for initial value + changed value
-                        XCTAssertEqual(value.count, 2)
-                        expectation.fulfill()
-                })
-            
-            let observationCancellable = Player
-                .observationForCount()
-                .publisher(in: writer as DatabaseReader)
-                .fetchOnSubscription()
-                .subscribe(testSubject)
-            
-            try writer.writeWithoutTransaction { db in
-                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
-            }
-            
-            waitForExpectations(timeout: 1, handler: nil)
-            testCancellable.cancel()
-            observationCancellable.cancel()
-        }
-        
-        try Test(test)
-            .run { try setUp(DatabaseQueue()) }
-            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
-            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
-    }
+//    func testChangesNotifications() throws {
+//        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
+//            try writer.write(Player.createTable)
+//            return writer
+//        }
+//
+//        func test(writer: DatabaseWriter) throws {
+//            let expectation = self.expectation(description: "")
+//            let testSubject = PassthroughSubject<Int, Error>()
+//            let testCancellable = testSubject
+//                .collect(3)
+//                .sink(
+//                    receiveCompletion: { completion in
+//                        assertNoFailure(completion)
+//                },
+//                    receiveValue: { value in
+//                        XCTAssertEqual(value, [0, 1, 3])
+//                        expectation.fulfill()
+//                })
+//
+//            let observationCancellable = Player
+//                .observationForCount()
+//                .publisher(in: writer as DatabaseReader)
+//                .subscribe(testSubject)
+//
+//            try writer.writeWithoutTransaction { db in
+//                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
+//
+//                try db.inTransaction {
+//                    try Player(id: 2, name: "Barbara", score: 750).insert(db)
+//                    try Player(id: 3, name: "Craig", score: 500).insert(db)
+//                    return .commit
+//                }
+//            }
+//
+//            waitForExpectations(timeout: 1, handler: nil)
+//            testCancellable.cancel()
+//            observationCancellable.cancel()
+//        }
+//
+//        try Test(test)
+//            .run { try setUp(DatabaseQueue()) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
+//    }
+//
+//    func testDefaultScheduler() throws {
+//        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
+//            try writer.write(Player.createTable)
+//            return writer
+//        }
+//
+//        func test(writer: DatabaseWriter) throws {
+//            let expectation = self.expectation(description: "")
+//            let testSubject = PassthroughSubject<Int, Error>()
+//            let testCancellable = testSubject
+//                .handleEvents(receiveOutput: { _ in
+//                    dispatchPrecondition(condition: .onQueue(.main))
+//                })
+//                .collect(2)
+//                .sink(
+//                    receiveCompletion: { completion in
+//                        assertNoFailure(completion)
+//                        dispatchPrecondition(condition: .onQueue(.main))
+//                },
+//                    receiveValue: { value in
+//                        // 2 = test for initial value + changed value
+//                        XCTAssertEqual(value.count, 2)
+//                        expectation.fulfill()
+//                })
+//
+//            let observationCancellable = Player
+//                .observationForCount()
+//                .publisher(in: writer as DatabaseReader)
+//                .subscribe(testSubject)
+//
+//            try writer.writeWithoutTransaction { db in
+//                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
+//            }
+//
+//            waitForExpectations(timeout: 1, handler: nil)
+//            testCancellable.cancel()
+//            observationCancellable.cancel()
+//        }
+//
+//        try Test(test)
+//            .run { try setUp(DatabaseQueue()) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
+//    }
+//
+//    func testFirstValueIsEmittedAsynchronously() throws {
+//        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
+//            try writer.write(Player.createTable)
+//            return writer
+//        }
+//
+//        func test(writer: DatabaseWriter) throws {
+//            let expectation = self.expectation(description: "")
+//            let semaphore = DispatchSemaphore(value: 0)
+//            let testSubject = PassthroughSubject<Int, Error>()
+//            let testCancellable = testSubject
+//                .sink(
+//                    receiveCompletion: { _ in },
+//                    receiveValue: { _ in
+//                        semaphore.wait()
+//                        expectation.fulfill()
+//                })
+//
+//            let observationCancellable = Player
+//                .observationForCount()
+//                .publisher(in: writer as DatabaseReader)
+//                .subscribe(testSubject)
+//
+//            semaphore.signal()
+//            waitForExpectations(timeout: 1, handler: nil)
+//            testCancellable.cancel()
+//            observationCancellable.cancel()
+//        }
+//
+//        try Test(test)
+//            .run { try setUp(DatabaseQueue()) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
+//    }
+//
+//    // MARK: - FetchOnSubscription
+//
+//    func testFetchOnSubscriptionChangesNotifications() throws {
+//        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
+//            try writer.write(Player.createTable)
+//            return writer
+//        }
+//
+//        func test(writer: DatabaseWriter) throws {
+//            let expectation = self.expectation(description: "")
+//            let testSubject = PassthroughSubject<Int, Error>()
+//            let testCancellable = testSubject
+//                .collect(3)
+//                .sink(
+//                    receiveCompletion: { completion in
+//                        assertNoFailure(completion)
+//                },
+//                    receiveValue: { value in
+//                        XCTAssertEqual(value, [0, 1, 3])
+//                        expectation.fulfill()
+//                })
+//
+//            let observationCancellable = Player
+//                .observationForCount()
+//                .publisher(in: writer as DatabaseReader)
+//                .fetchOnSubscription()
+//                .subscribe(testSubject)
+//
+//            try writer.writeWithoutTransaction { db in
+//                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
+//
+//                try db.inTransaction {
+//                    try Player(id: 2, name: "Barbara", score: 750).insert(db)
+//                    try Player(id: 3, name: "Craig", score: 500).insert(db)
+//                    return .commit
+//                }
+//            }
+//
+//            waitForExpectations(timeout: 1, handler: nil)
+//            testCancellable.cancel()
+//            observationCancellable.cancel()
+//        }
+//
+//        try Test(test)
+//            .run { try setUp(DatabaseQueue()) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
+//    }
+//
+//    func testFetchOnSubscriptionDefaultScheduler() throws {
+//        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
+//            try writer.write(Player.createTable)
+//            return writer
+//        }
+//
+//        func test(writer: DatabaseWriter) throws {
+//            let expectation = self.expectation(description: "")
+//            let testSubject = PassthroughSubject<Int, Error>()
+//            let testCancellable = testSubject
+//                .handleEvents(receiveOutput: { _ in
+//                    dispatchPrecondition(condition: .onQueue(.main))
+//                })
+//                .collect(2)
+//                .sink(
+//                    receiveCompletion: { completion in
+//                        assertNoFailure(completion)
+//                        dispatchPrecondition(condition: .onQueue(.main))
+//                },
+//                    receiveValue: { value in
+//                        // 2 = test for initial value + changed value
+//                        XCTAssertEqual(value.count, 2)
+//                        expectation.fulfill()
+//                })
+//
+//            let observationCancellable = Player
+//                .observationForCount()
+//                .publisher(in: writer as DatabaseReader)
+//                .fetchOnSubscription()
+//                .subscribe(testSubject)
+//
+//            try writer.writeWithoutTransaction { db in
+//                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
+//            }
+//
+//            waitForExpectations(timeout: 1, handler: nil)
+//            testCancellable.cancel()
+//            observationCancellable.cancel()
+//        }
+//
+//        try Test(test)
+//            .run { try setUp(DatabaseQueue()) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
+//    }
     
     func testFetchOnSubscriptionEmitsFirstValueSynchronously() throws {
         func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
@@ -370,81 +370,81 @@ class ValueObservationPublisherTests : XCTestCase {
             .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
     }
     
-    func testDemandOneDoesNotReceiveTwoElements() throws {
-        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
-            try writer.write(Player.createTable)
-            return writer
-        }
-        
-        func test(writer: DatabaseWriter) throws {
-            let subscriber = DemandSubscriber<Int, Error>()
-            Player
-                .observationForCount()
-                .publisher(in: writer as DatabaseReader)
-                .subscribe(subscriber)
-            
-            subscriber.request(.max(1))
-            
-            let expectation = self.expectation(description: "")
-            expectation.isInverted = true
-            let testCancellable = subscriber.subject
-                .collect(2)
-                .sink(
-                    receiveCompletion: { _ in XCTFail("Unexpected completion") },
-                    receiveValue: { _ in expectation.fulfill() })
-            
-            try writer.writeWithoutTransaction { db in
-                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
-            }
-            
-            waitForExpectations(timeout: 1, handler: nil)
-            testCancellable.cancel()
-            subscriber.cancel()
-        }
-        
-        try Test(test)
-            .run { try setUp(DatabaseQueue()) }
-            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
-            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
-    }
-    
-    func testDemandTwoReceivesTwoElements() throws {
-        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
-            try writer.write(Player.createTable)
-            return writer
-        }
-        
-        func test(writer: DatabaseWriter) throws {
-            let subscriber = DemandSubscriber<Int, Error>()
-            Player
-                .observationForCount()
-                .publisher(in: writer as DatabaseReader)
-                .subscribe(subscriber)
-            
-            subscriber.request(.max(2))
-            
-            let expectation = self.expectation(description: "")
-            let testCancellable = subscriber.subject
-                .collect(2)
-                .sink(
-                    receiveCompletion: { _ in XCTFail("Unexpected completion") },
-                    receiveValue: { values in
-                        XCTAssertEqual(values, [0,1])
-                        expectation.fulfill()
-                })
-            
-            try writer.writeWithoutTransaction { db in
-                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
-            }
-            
-            waitForExpectations(timeout: 1, handler: nil)
-            testCancellable.cancel()
-            subscriber.cancel()
-        }
-        
-        try Test(test)
-            .run { try setUp(DatabaseQueue()) }
-            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
-            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
-    }
+//    func testDemandOneDoesNotReceiveTwoElements() throws {
+//        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
+//            try writer.write(Player.createTable)
+//            return writer
+//        }
+//
+//        func test(writer: DatabaseWriter) throws {
+//            let subscriber = DemandSubscriber<Int, Error>()
+//            Player
+//                .observationForCount()
+//                .publisher(in: writer as DatabaseReader)
+//                .subscribe(subscriber)
+//
+//            subscriber.request(.max(1))
+//
+//            let expectation = self.expectation(description: "")
+//            expectation.isInverted = true
+//            let testCancellable = subscriber.subject
+//                .collect(2)
+//                .sink(
+//                    receiveCompletion: { _ in XCTFail("Unexpected completion") },
+//                    receiveValue: { _ in expectation.fulfill() })
+//
+//            try writer.writeWithoutTransaction { db in
+//                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
+//            }
+//
+//            waitForExpectations(timeout: 1, handler: nil)
+//            testCancellable.cancel()
+//            subscriber.cancel()
+//        }
+//
+//        try Test(test)
+//            .run { try setUp(DatabaseQueue()) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
+//    }
+//
+//    func testDemandTwoReceivesTwoElements() throws {
+//        func setUp<Writer: DatabaseWriter>(_ writer: Writer) throws -> Writer {
+//            try writer.write(Player.createTable)
+//            return writer
+//        }
+//
+//        func test(writer: DatabaseWriter) throws {
+//            let subscriber = DemandSubscriber<Int, Error>()
+//            Player
+//                .observationForCount()
+//                .publisher(in: writer as DatabaseReader)
+//                .subscribe(subscriber)
+//
+//            subscriber.request(.max(2))
+//
+//            let expectation = self.expectation(description: "")
+//            let testCancellable = subscriber.subject
+//                .collect(2)
+//                .sink(
+//                    receiveCompletion: { _ in XCTFail("Unexpected completion") },
+//                    receiveValue: { values in
+//                        XCTAssertEqual(values, [0,1])
+//                        expectation.fulfill()
+//                })
+//
+//            try writer.writeWithoutTransaction { db in
+//                try Player(id: 1, name: "Arthur", score: 1000).insert(db)
+//            }
+//
+//            waitForExpectations(timeout: 1, handler: nil)
+//            testCancellable.cancel()
+//            subscriber.cancel()
+//        }
+//
+//        try Test(test)
+//            .run { try setUp(DatabaseQueue()) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabaseQueue(path: $0)) }
+//            .runAtTemporaryDatabasePath { try setUp(DatabasePool(path: $0)) }
+//    }
 }

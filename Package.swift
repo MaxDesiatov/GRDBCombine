@@ -7,7 +7,7 @@ let package = Package(
     name: "GRDBOpenCombine",
     platforms: [
         .iOS("10.0"),
-        .macOS("10.10"),
+        .macOS("10.12"),
         .tvOS("9.0"),
         .watchOS("2.0"),
     ],
