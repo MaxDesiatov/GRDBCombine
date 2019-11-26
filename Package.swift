@@ -16,7 +16,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", .upToNextMajor(from: "4.1.0")),
-        .package(url: "https://github.com/MaxDesiatov/OpenCombine.git", .branch("future"))
+        .package(url: "https://github.com/broadwaylamb/OpenCombine.git", .upToNextMajor(from: "0.6.0"))
     ],
     targets: [
         .target(
